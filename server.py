@@ -57,7 +57,7 @@ ENHANCEMENT_PROMPT = (
     "over-smooth skin."
 )
 
-MODEL = "gemini-3.1-flash-image-preview"
+MODEL = "gemini-2.0-flash-preview-image-generation"
 
 
 def allowed_file(filename: str) -> bool:
