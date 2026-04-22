@@ -1,0 +1,27 @@
+{
+  "skill_name": "photo-enhancer-4k",
+  "notes": "End-to-end assertions (image comes back from API) require a live GEMINI_API_KEY and are expected to be run manually by the user. The assertions below only cover what's verifiable without a real API call.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "missing-api-key",
+      "prompt": "Enhance the photo at /tmp/sample.jpg to 4K using the skill.",
+      "expected_output": "Script exits 1 with a clear message telling the user to set GEMINI_API_KEY and pointing to https://aistudio.google.com/apikey.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "missing-input-file",
+      "prompt": "Enhance /tmp/does-not-exist.jpg to 4K.",
+      "expected_output": "Script exits 1 with 'input file not found' (with GEMINI_API_KEY set to a dummy value so we don't short-circuit on key).",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "help-flag",
+      "prompt": "Show me how to use the enhance.py script.",
+      "expected_output": "`python3 enhance.py --help` prints usage, describes the --output flag, and the input argument.",
+      "files": []
+    }
+  ]
+}

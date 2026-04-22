@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo Enhancer 4K</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c26;
+      --border: #2a2a3a;
+      --accent: #7c6fff;
+      --accent2: #b06eff;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --success: #4ade80;
+      --error: #f87171;
+      --radius: 16px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .logo-text span { color: var(--accent); }
+    .badge {
+      margin-left: 4px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      max-width: 600px;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      background: linear-gradient(135deg, #fff 40%, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    /* ── Main card ── */
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      margin: 0 20px 40px;
+    }
+
+    /* ── Drop zone ── */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(124, 111, 255, 0.05);
+    }
+    .dropzone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .dropzone-icon { font-size: 40px; margin-bottom: 12px; }
+    .dropzone-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .dropzone-sub { font-size: 13px; color: var(--muted); }
+    .dropzone-sub span { color: var(--accent); font-weight: 500; }
+
+    /* ── Preview strip ── */
+    #preview-area {
+      display: none;
+      margin-top: 24px;
+      gap: 16px;
+      flex-direction: column;
+    }
+    .preview-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 500px) { .preview-grid { grid-template-columns: 1fr; } }
+    .preview-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .preview-box img {
+      width: 100%; display: block;
+      max-height: 300px;
+      object-fit: contain;
+      background: #000;
+    }
+    .preview-box-label {
+      position: absolute; top: 8px; left: 8px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .preview-box-label.enhanced { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+
+    /* ── Enhance button ── */
+    #enhance-btn {
+      margin-top: 24px;
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    #enhance-btn:hover { opacity: 0.9; }
+    #enhance-btn:active { transform: scale(0.98); }
+    #enhance-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Status message ── */
+    #status {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+    }
+    #status.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--error); }
+    #status.info  { background: rgba(124,111,255,0.1); border: 1px solid rgba(124,111,255,0.3); color: var(--accent); }
+
+    /* ── Download button ── */
+    #download-btn {
+      margin-top: 16px;
+      width: 100%;
+      padding: 13px;
+      background: transparent;
+      border: 2px solid var(--success);
+      color: var(--success);
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #download-btn:hover { background: var(--success); color: #000; }
+
+    /* ── Reset link ── */
+    #reset-btn {
+      display: none;
+      margin-top: 12px;
+      width: 100%;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: underline;
+      background: none;
+      border: none;
+    }
+    #reset-btn:hover { color: var(--text); }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: auto;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    /* ── Lightbox ── */
+    .preview-box img { cursor: zoom-in; }
+    #lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img {
+      max-width: 92vw;
+      max-height: 92vh;
+      object-fit: contain;
+      border-radius: 10px;
+      box-shadow: 0 0 60px rgba(0,0,0,0.8);
+      cursor: default;
+    }
+    #lightbox-close {
+      position: fixed;
+      top: 20px; right: 24px;
+      color: #fff;
+      font-size: 32px;
+      font-weight: 300;
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    #lightbox-close:hover { opacity: 1; }
+    #lightbox-label {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      display: none;
+      margin-top: 16px;
+      background: var(--surface2);
+      border-radius: 8px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      width: 0%;
+      transition: width 0.4s ease;
+      animation: indeterminate 1.4s ease infinite;
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); width: 60%; }
+      100% { transform: translateX(200%); width: 60%; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">✦</div>
+  <div class="logo-text">Photo<span>Enhancer</span></div>
+  <div class="badge">4K</div>
+</header>
+
+<div class="hero">
+  <h1>Turn any portrait into<br>premium 4K quality</h1>
+  <p>Powered by Gemini Nano Banana. Upload a photo and get a cinematic,
+     Sony A1-quality enhanced version in seconds.</p>
+</div>
+
+<div class="card">
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" />
+    <div class="dropzone-icon">🖼️</div>
+    <div class="dropzone-title">Drop your photo here</div>
+    <div class="dropzone-sub">or <span>browse to upload</span> · JPG, PNG, WEBP · max 20 MB</div>
+  </div>
+
+  <!-- Before / After preview -->
+  <div id="preview-area">
+    <div class="preview-grid">
+      <div class="preview-box">
+        <div class="preview-box-label">Original</div>
+        <img id="original-img" src="" alt="Original" />
+      </div>
+      <div class="preview-box" id="enhanced-box" style="display:none">
+        <div class="preview-box-label enhanced">Enhanced 4K</div>
+        <img id="enhanced-img" src="" alt="Enhanced" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar"></div>
+  </div>
+
+  <!-- Status -->
+  <div id="status"></div>
+
+  <!-- Enhance button -->
+  <button id="enhance-btn">
+    <span id="btn-text">✦ Enhance to 4K</span>
+    <div class="spinner" id="spinner"></div>
+  </button>
+
+  <!-- Download button -->
+  <button id="download-btn">⬇ Download Enhanced Image</button>
+
+  <!-- Reset -->
+  <button id="reset-btn">Upload a different photo</button>
+
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox">
+  <span id="lightbox-close">&#x2715;</span>
+  <img id="lightbox-img" src="" alt="" />
+  <div id="lightbox-label"></div>
+</div>
+
+<footer>
+  Powered by Gemini 2.5 Flash Image (Nano Banana) · Identity & background preserved · No data stored
+</footer>
+
+<script>
+  const dropzone     = document.getElementById('dropzone');
+  const fileInput    = document.getElementById('file-input');
+  const previewArea  = document.getElementById('preview-area');
+  const originalImg  = document.getElementById('original-img');
+  const enhancedImg  = document.getElementById('enhanced-img');
+  const enhancedBox  = document.getElementById('enhanced-box');
+  const enhanceBtn   = document.getElementById('enhance-btn');
+  const downloadBtn  = document.getElementById('download-btn');
+  const resetBtn     = document.getElementById('reset-btn');
+  const statusEl     = document.getElementById('status');
+  const spinner      = document.getElementById('spinner');
+  const btnText      = document.getElementById('btn-text');
+  const progressWrap = document.getElementById('progress-wrap');
+
+  let selectedFile = null;
+  let enhancedBlob = null;
+
+  // ── Drag & drop ──────────────────────────────────────────────────────────
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      showStatus('Please upload a JPG, PNG, or WEBP image.', 'error');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      showStatus('File is too large. Max 20 MB.', 'error');
+      return;
+    }
+    selectedFile = file;
+    hideStatus();
+    enhancedBox.style.display = 'none';
+    enhancedBlob = null;
+    downloadBtn.style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      originalImg.src = e.target.result;
+      previewArea.style.display = 'flex';
+      enhanceBtn.style.display = 'flex';
+      resetBtn.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ── Enhance ───────────────────────────────────────────────────────────────
+  enhanceBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    setLoading(true);
+    showStatus('Enhancing your photo with Gemini Nano Banana... this takes 20–40 seconds.', 'info');
+
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+
+    try {
+      const res = await fetch('/enhance', { method: 'POST', body: formData });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+        throw new Error(data.error || `Server error ${res.status}`);
+      }
+
+      enhancedBlob = await res.blob();
+      const url = URL.createObjectURL(enhancedBlob);
+      enhancedImg.src = url;
+      enhancedBox.style.display = 'block';
+
+      downloadBtn.style.display = 'flex';
+      downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
+        a.click();
+      };
+
+      hideStatus();
+    } catch (err) {
+      showStatus(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  resetBtn.addEventListener('click', () => {
+    selectedFile = null;
+    enhancedBlob = null;
+    fileInput.value = '';
+    originalImg.src = '';
+    enhancedImg.src = '';
+    previewArea.style.display = 'none';
+    enhancedBox.style.display = 'none';
+    enhanceBtn.style.display = 'none';
+    downloadBtn.style.display = 'none';
+    resetBtn.style.display = 'none';
+    hideStatus();
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function setLoading(loading) {
+    enhanceBtn.disabled = loading;
+    spinner.style.display = loading ? 'block' : 'none';
+    btnText.textContent = loading ? 'Enhancing…' : '✦ Enhance to 4K';
+    progressWrap.style.display = loading ? 'block' : 'none';
+  }
+
+  function showStatus(msg, type) {
+    statusEl.textContent = msg;
+    statusEl.className = type;
+    statusEl.style.display = 'block';
+  }
+
+  // ── Lightbox ──────────────────────────────────────────────────────────────
+  const lightbox      = document.getElementById('lightbox');
+  const lightboxImg   = document.getElementById('lightbox-img');
+  const lightboxLabel = document.getElementById('lightbox-label');
+  const lightboxClose = document.getElementById('lightbox-close');
+
+  function openLightbox(src, label) {
+    lightboxImg.src = src;
+    lightboxLabel.textContent = label;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  originalImg.addEventListener('click', () => {
+    if (originalImg.src) openLightbox(originalImg.src, 'Original');
+  });
+  enhancedImg.addEventListener('click', () => {
+    if (enhancedImg.src) openLightbox(enhancedImg.src, 'Enhanced 4K');
+  });
+
+  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+  lightboxClose.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+  function hideStatus() {
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+  }
+</script>
+
+</body>
+</html>
