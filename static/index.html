@@ -8,10 +8,10 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0a0a0f;
-      --surface: #13131a;
-      --surface2: #1c1c26;
-      --border: #2a2a3a;
+      --bg: #07070f;
+      --surface: #10101a;
+      --surface2: #1a1a28;
+      --border: #2a2a40;
       --accent: #7c6fff;
       --accent2: #b06eff;
       --text: #e8e8f0;
@@ -29,7 +29,60 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      overflow-x: hidden;
     }
+
+    /* ── Animated background glow ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -60%);
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse at center, rgba(124,111,255,0.18) 0%, rgba(176,110,255,0.08) 40%, transparent 70%);
+      pointer-events: none;
+      animation: glowPulse 4s ease-in-out infinite;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 300px;
+      background: radial-gradient(ellipse at center, rgba(124,111,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes glowPulse {
+      0%, 100% { opacity: 1; transform: translate(-50%, -60%) scale(1); }
+      50%       { opacity: 0.7; transform: translate(-50%, -60%) scale(1.08); }
+    }
+
+    /* ── Floating stars ── */
+    .stars {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .star {
+      position: absolute;
+      width: 3px; height: 3px;
+      background: rgba(255,255,255,0.6);
+      border-radius: 50%;
+      animation: twinkle var(--dur, 3s) ease-in-out infinite var(--delay, 0s);
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.1; transform: scale(1); }
+      50%       { opacity: 0.8; transform: scale(1.5); }
+    }
+
+    /* ── All content above bg ── */
+    header, .hero, .card, footer { position: relative; z-index: 1; }
 
     /* ── Header ── */
     header {
@@ -38,14 +91,19 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      border-bottom: 1px solid var(--border);
     }
     .logo-icon {
-      width: 36px; height: 36px;
+      width: 38px; height: 38px;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       font-size: 18px;
+      box-shadow: 0 0 20px rgba(124,111,255,0.4);
+      animation: logoPulse 3s ease-in-out infinite;
+    }
+    @keyframes logoPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(124,111,255,0.4); }
+      50%       { box-shadow: 0 0 30px rgba(176,110,255,0.6); }
     }
     .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
     .logo-text span { color: var(--accent); }
@@ -63,58 +121,113 @@
     /* ── Hero ── */
     .hero {
       text-align: center;
-      padding: 60px 20px 40px;
-      max-width: 600px;
+      padding: 48px 20px 32px;
+      max-width: 640px;
+      animation: fadeUp 0.7s ease both;
     }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .powered-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124,111,255,0.12);
+      border: 1px solid rgba(124,111,255,0.3);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+      animation: pillGlow 3s ease-in-out infinite;
+    }
+    @keyframes pillGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(124,111,255,0); }
+      50%       { box-shadow: 0 0 16px rgba(124,111,255,0.3); }
+    }
+    .powered-pill svg { width: 14px; height: 14px; fill: var(--accent); }
     .hero h1 {
-      font-size: clamp(28px, 5vw, 44px);
+      font-size: clamp(30px, 5vw, 48px);
       font-weight: 800;
-      letter-spacing: -1px;
-      line-height: 1.15;
-      background: linear-gradient(135deg, #fff 40%, var(--accent2));
+      letter-spacing: -1.5px;
+      line-height: 1.12;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      background-size: 200% 200%;
+      animation: gradientShift 4s ease infinite;
+    }
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
     }
     .hero p {
-      margin-top: 14px;
+      margin-top: 16px;
       color: var(--muted);
-      font-size: 16px;
-      line-height: 1.6;
+      font-size: 15px;
+      line-height: 1.7;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     /* ── Main card ── */
     .card {
       width: 100%;
       max-width: 680px;
-      background: var(--surface);
+      background: rgba(16,16,26,0.8);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 32px;
-      margin: 0 20px 40px;
+      margin: 0 20px 32px;
+      backdrop-filter: blur(12px);
+      animation: fadeUp 0.7s 0.15s ease both;
     }
 
     /* ── Drop zone ── */
     .dropzone {
       border: 2px dashed var(--border);
       border-radius: 12px;
-      padding: 48px 24px;
+      padding: 52px 24px;
       text-align: center;
       cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
+      transition: border-color 0.25s, background 0.25s, transform 0.2s;
       position: relative;
     }
     .dropzone:hover, .dropzone.dragover {
       border-color: var(--accent);
-      background: rgba(124, 111, 255, 0.05);
+      background: rgba(124,111,255,0.06);
+      transform: scale(1.01);
     }
     .dropzone input[type="file"] {
       position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
     }
-    .dropzone-icon { font-size: 40px; margin-bottom: 12px; }
-    .dropzone-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .dropzone-icon-wrap {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+      animation: iconFloat 3s ease-in-out infinite;
+      box-shadow: 0 0 30px rgba(124,111,255,0.35);
+    }
+    @keyframes iconFloat {
+      0%, 100% { transform: translateY(0); box-shadow: 0 0 30px rgba(124,111,255,0.35); }
+      50%       { transform: translateY(-6px); box-shadow: 0 10px 40px rgba(124,111,255,0.5); }
+    }
+    .dropzone-icon-wrap svg { width: 32px; height: 32px; fill: #fff; }
+    .dropzone-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
     .dropzone-sub { font-size: 13px; color: var(--muted); }
-    .dropzone-sub span { color: var(--accent); font-weight: 500; }
+    .dropzone-sub span { color: var(--accent); font-weight: 500; cursor: pointer; }
+    .dropzone-meta { margin-top: 8px; font-size: 12px; color: var(--muted); letter-spacing: 0.3px; }
 
     /* ── Preview strip ── */
     #preview-area {
@@ -122,14 +235,6 @@
       margin-top: 24px;
       gap: 16px;
       flex-direction: column;
-    }
-    .preview-label {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--muted);
-      margin-bottom: 8px;
     }
     .preview-grid {
       display: grid;
@@ -149,6 +254,7 @@
       max-height: 300px;
       object-fit: contain;
       background: #000;
+      cursor: zoom-in;
     }
     .preview-box-label {
       position: absolute; top: 8px; left: 8px;
@@ -175,14 +281,19 @@
       border: none;
       border-radius: 12px;
       cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
       display: none;
       align-items: center;
       justify-content: center;
       gap: 10px;
+      box-shadow: 0 4px 24px rgba(124,111,255,0.35);
     }
-    #enhance-btn:hover { opacity: 0.9; }
-    #enhance-btn:active { transform: scale(0.98); }
+    #enhance-btn:hover:not(:disabled) {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 32px rgba(124,111,255,0.5);
+    }
+    #enhance-btn:active:not(:disabled) { transform: scale(0.98); }
     #enhance-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* ── Spinner ── */
@@ -220,13 +331,13 @@
       font-weight: 700;
       border-radius: 12px;
       cursor: pointer;
-      transition: background 0.2s, color 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.15s;
       display: none;
       align-items: center;
       justify-content: center;
       gap: 8px;
     }
-    #download-btn:hover { background: var(--success); color: #000; }
+    #download-btn:hover { background: var(--success); color: #000; transform: translateY(-1px); }
 
     /* ── Reset link ── */
     #reset-btn {
@@ -243,6 +354,66 @@
     }
     #reset-btn:hover { color: var(--text); }
 
+    /* ── Progress bar ── */
+    .progress-wrap {
+      display: none;
+      margin-top: 16px;
+      background: var(--surface2);
+      border-radius: 8px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      animation: indeterminate 1.4s ease infinite;
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); width: 60%; }
+      100% { transform: translateX(200%); width: 60%; }
+    }
+
+    /* ── Feature pills ── */
+    .features {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0 20px 40px;
+      animation: fadeUp 0.7s 0.3s ease both;
+      position: relative;
+      z-index: 1;
+    }
+    .feature-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16,16,26,0.8);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      backdrop-filter: blur(8px);
+    }
+    .feature-pill:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(124,111,255,0.2);
+    }
+    .feature-pill-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .feature-pill-text { line-height: 1.3; }
+    .feature-pill-title { font-weight: 700; font-size: 13px; }
+    .feature-pill-sub { font-size: 11px; color: var(--muted); }
+
     /* ── Footer ── */
     footer {
       margin-top: auto;
@@ -250,10 +421,11 @@
       color: var(--muted);
       font-size: 12px;
       text-align: center;
+      position: relative;
+      z-index: 1;
     }
 
     /* ── Lightbox ── */
-    .preview-box img { cursor: zoom-in; }
     #lightbox {
       display: none;
       position: fixed;
@@ -299,31 +471,12 @@
       padding: 6px 14px;
       border-radius: 20px;
     }
-
-    /* ── Progress bar ── */
-    .progress-wrap {
-      display: none;
-      margin-top: 16px;
-      background: var(--surface2);
-      border-radius: 8px;
-      height: 6px;
-      overflow: hidden;
-    }
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 8px;
-      width: 0%;
-      transition: width 0.4s ease;
-      animation: indeterminate 1.4s ease infinite;
-    }
-    @keyframes indeterminate {
-      0%   { transform: translateX(-100%); width: 60%; }
-      100% { transform: translateX(200%); width: 60%; }
-    }
   </style>
 </head>
 <body>
+
+<!-- Floating stars -->
+<div class="stars" id="stars"></div>
 
 <header>
   <div class="logo-icon">✦</div>
@@ -332,19 +485,24 @@
 </header>
 
 <div class="hero">
-  <h1>Turn any portrait into<br>premium 4K quality</h1>
-  <p>Powered by Gemini Nano Banana. Upload a photo and get a cinematic,
-     Sony A1-quality enhanced version in seconds.</p>
+  <div class="powered-pill">
+    <svg viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+    Powered by Gemini Nano Banana
+  </div>
+  <h1>Turn any portrait into<br><span class="gradient-text">premium 4K quality</span></h1>
+  <p>Upload a photo and get a cinematic, Sony A1-quality enhanced version in seconds using advanced AI technology.</p>
 </div>
 
 <div class="card">
-
   <!-- Drop zone -->
   <div class="dropzone" id="dropzone">
     <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" />
-    <div class="dropzone-icon">🖼️</div>
+    <div class="dropzone-icon-wrap">
+      <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+    </div>
     <div class="dropzone-title">Drop your photo here</div>
-    <div class="dropzone-sub">or <span>browse to upload</span> · JPG, PNG, WEBP · max 20 MB</div>
+    <div class="dropzone-sub">or <span>browse to upload</span></div>
+    <div class="dropzone-meta">JPG, PNG, WEBP &nbsp;·&nbsp; Max 20MB</div>
   </div>
 
   <!-- Before / After preview -->
@@ -380,7 +538,31 @@
 
   <!-- Reset -->
   <button id="reset-btn">Upload a different photo</button>
+</div>
 
+<!-- Feature pills -->
+<div class="features">
+  <div class="feature-pill">
+    <div class="feature-pill-icon">✦</div>
+    <div class="feature-pill-text">
+      <div class="feature-pill-title">4K Ultra HD</div>
+      <div class="feature-pill-sub">Premium quality upscaling</div>
+    </div>
+  </div>
+  <div class="feature-pill">
+    <div class="feature-pill-icon">⚡</div>
+    <div class="feature-pill-text">
+      <div class="feature-pill-title">Lightning Fast</div>
+      <div class="feature-pill-sub">Enhanced in seconds</div>
+    </div>
+  </div>
+  <div class="feature-pill">
+    <div class="feature-pill-icon">🔒</div>
+    <div class="feature-pill-text">
+      <div class="feature-pill-title">Secure & Private</div>
+      <div class="feature-pill-sub">Your photos are safe</div>
+    </div>
+  </div>
 </div>
 
 <!-- Lightbox -->
@@ -395,6 +577,22 @@
 </footer>
 
 <script>
+  // Generate random stars
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.cssText = `
+      left: ${Math.random() * 100}%;
+      top: ${Math.random() * 100}%;
+      --dur: ${2 + Math.random() * 4}s;
+      --delay: ${Math.random() * 4}s;
+      width: ${1 + Math.random() * 3}px;
+      height: ${1 + Math.random() * 3}px;
+    `;
+    starsEl.appendChild(s);
+  }
+
   const dropzone     = document.getElementById('dropzone');
   const fileInput    = document.getElementById('file-input');
   const previewArea  = document.getElementById('preview-area');
@@ -412,7 +610,6 @@
   let selectedFile = null;
   let enhancedBlob = null;
 
-  // ── Drag & drop ──────────────────────────────────────────────────────────
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
   dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
   dropzone.addEventListener('drop', e => {
@@ -428,20 +625,13 @@
 
   function handleFile(file) {
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      showStatus('Please upload a JPG, PNG, or WEBP image.', 'error');
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      showStatus('File is too large. Max 20 MB.', 'error');
-      return;
-    }
+    if (!allowed.includes(file.type)) { showStatus('Please upload a JPG, PNG, or WEBP image.', 'error'); return; }
+    if (file.size > 20 * 1024 * 1024) { showStatus('File is too large. Max 20 MB.', 'error'); return; }
     selectedFile = file;
     hideStatus();
     enhancedBox.style.display = 'none';
     enhancedBlob = null;
     downloadBtn.style.display = 'none';
-
     const reader = new FileReader();
     reader.onload = e => {
       originalImg.src = e.target.result;
@@ -452,29 +642,22 @@
     reader.readAsDataURL(file);
   }
 
-  // ── Enhance ───────────────────────────────────────────────────────────────
   enhanceBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
-
     setLoading(true);
-    showStatus('Enhancing your photo with Gemini Nano Banana... this takes 20–40 seconds.', 'info');
-
+    showStatus('Enhancing your photo with Gemini Nano Banana… this takes 20–60 seconds.', 'info');
     const formData = new FormData();
     formData.append('image', selectedFile);
-
     try {
       const res = await fetch('/enhance', { method: 'POST', body: formData });
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
         throw new Error(data.error || `Server error ${res.status}`);
       }
-
       enhancedBlob = await res.blob();
       const url = URL.createObjectURL(enhancedBlob);
       enhancedImg.src = url;
       enhancedBox.style.display = 'block';
-
       downloadBtn.style.display = 'flex';
       downloadBtn.onclick = () => {
         const a = document.createElement('a');
@@ -482,7 +665,6 @@
         a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
         a.click();
       };
-
       hideStatus();
     } catch (err) {
       showStatus(err.message, 'error');
@@ -491,13 +673,9 @@
     }
   });
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
   resetBtn.addEventListener('click', () => {
-    selectedFile = null;
-    enhancedBlob = null;
-    fileInput.value = '';
-    originalImg.src = '';
-    enhancedImg.src = '';
+    selectedFile = null; enhancedBlob = null; fileInput.value = '';
+    originalImg.src = ''; enhancedImg.src = '';
     previewArea.style.display = 'none';
     enhancedBox.style.display = 'none';
     enhanceBtn.style.display = 'none';
@@ -506,7 +684,6 @@
     hideStatus();
   });
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   function setLoading(loading) {
     enhanceBtn.disabled = loading;
     spinner.style.display = loading ? 'block' : 'none';
@@ -519,40 +696,30 @@
     statusEl.className = type;
     statusEl.style.display = 'block';
   }
+  function hideStatus() {
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+  }
 
-  // ── Lightbox ──────────────────────────────────────────────────────────────
+  // Lightbox
   const lightbox      = document.getElementById('lightbox');
   const lightboxImg   = document.getElementById('lightbox-img');
   const lightboxLabel = document.getElementById('lightbox-label');
   const lightboxClose = document.getElementById('lightbox-close');
 
   function openLightbox(src, label) {
-    lightboxImg.src = src;
-    lightboxLabel.textContent = label;
-    lightbox.classList.add('open');
-    document.body.style.overflow = 'hidden';
+    lightboxImg.src = src; lightboxLabel.textContent = label;
+    lightbox.classList.add('open'); document.body.style.overflow = 'hidden';
   }
-
   function closeLightbox() {
-    lightbox.classList.remove('open');
-    document.body.style.overflow = '';
+    lightbox.classList.remove('open'); document.body.style.overflow = '';
   }
 
-  originalImg.addEventListener('click', () => {
-    if (originalImg.src) openLightbox(originalImg.src, 'Original');
-  });
-  enhancedImg.addEventListener('click', () => {
-    if (enhancedImg.src) openLightbox(enhancedImg.src, 'Enhanced 4K');
-  });
-
+  originalImg.addEventListener('click', () => { if (originalImg.src) openLightbox(originalImg.src, 'Original'); });
+  enhancedImg.addEventListener('click', () => { if (enhancedImg.src) openLightbox(enhancedImg.src, 'Enhanced 4K'); });
   lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
   lightboxClose.addEventListener('click', closeLightbox);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
-
-  function hideStatus() {
-    statusEl.style.display = 'none';
-    statusEl.textContent = '';
-  }
 </script>
 
 </body>
