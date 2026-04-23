@@ -487,10 +487,10 @@
 <div class="hero">
   <div class="powered-pill">
     <svg viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
-    Advanced AI Enhancement
+    Powered by Gemini AI
   </div>
   <h1>Turn any portrait into<br><span class="gradient-text">premium 4K quality</span></h1>
-  <p>Upload a photo and get a sharpened, upscaled, cinema-grade enhanced version in seconds.</p>
+  <p>Upload a photo and get a cinematic, Sony A1-quality enhanced version powered by Google Gemini.</p>
 </div>
 
 <div class="card">
@@ -645,29 +645,51 @@
   enhanceBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
     setLoading(true);
-    showStatus('Enhancing your photo to 4K quality…', 'info');
+    showStatus('Uploading photo to Gemini AI…', 'info');
 
     const formData = new FormData();
     formData.append('image', selectedFile);
 
     try {
       const res = await fetch('/enhance', { method: 'POST', body: formData });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
-        throw new Error(data.error || `Server error ${res.status}`);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Upload failed');
+
+      const jobId = data.job_id;
+      let secs = 0;
+
+      while (secs < 120) {
+        await new Promise(r => setTimeout(r, 3000));
+        secs += 3;
+
+        const poll = await fetch(`/status/${jobId}`);
+        const job = await poll.json();
+
+        if (job.status === 'error') throw new Error(job.error || 'Enhancement failed');
+
+        if (job.status === 'done') {
+          const imgRes = await fetch(`/result/${jobId}`);
+          if (!imgRes.ok) throw new Error('Could not fetch result');
+          enhancedBlob = await imgRes.blob();
+          const url = URL.createObjectURL(enhancedBlob);
+          enhancedImg.src = url;
+          enhancedBox.style.display = 'block';
+          downloadBtn.style.display = 'flex';
+          downloadBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
+            a.click();
+          };
+          hideStatus();
+          setLoading(false);
+          return;
+        }
+
+        showStatus(`Enhancing with Gemini AI… ${secs}s`, 'info');
       }
-      enhancedBlob = await res.blob();
-      const url = URL.createObjectURL(enhancedBlob);
-      enhancedImg.src = url;
-      enhancedBox.style.display = 'block';
-      downloadBtn.style.display = 'flex';
-      downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
-        a.click();
-      };
-      hideStatus();
+
+      throw new Error('Timed out. Please try with a smaller image.');
     } catch (err) {
       showStatus(err.message, 'error');
     } finally {
