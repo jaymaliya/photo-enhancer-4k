@@ -2,6 +2,7 @@
 import os
 import uuid
 import threading
+import socket
 from io import BytesIO
 
 from dotenv import load_dotenv
@@ -19,11 +20,9 @@ JOBS = {}
 JOBS_LOCK = threading.Lock()
 
 PROMPT = (
-    "You are a professional photo retoucher. Enhance this portrait photo: "
-    "improve lighting, sharpness, color grading, and overall quality. "
-    "Make it look like it was shot on a Sony A1 camera with cinematic quality. "
-    "Keep the person's face, identity, and background exactly the same. "
-    "Output only the enhanced image."
+    "Enhance this portrait photo. Improve lighting, sharpness, color grading. "
+    "Make it look professional and cinematic. Keep the person's face and "
+    "background identical. Output only the enhanced image."
 )
 
 
@@ -32,38 +31,40 @@ def allowed_file(filename):
 
 
 def _run_job(job_id, img_bytes, api_key):
+    # Set socket timeout so the Gemini call can't hang forever
+    socket.setdefaulttimeout(90)
+    print(f"[{job_id}] Job started")
     try:
         from PIL import Image
         from google import genai
         from google.genai import types
 
-        # Resize to max 800px — keeps Gemini fast and avoids timeouts
         img = Image.open(BytesIO(img_bytes)).convert("RGB")
-        max_dim = 800
-        if img.width > max_dim or img.height > max_dim:
-            img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+        img.thumbnail((800, 800), Image.LANCZOS)
 
-        # Convert to JPEG bytes for API
         jpeg_buf = BytesIO()
-        img.save(jpeg_buf, format="JPEG", quality=90)
+        img.save(jpeg_buf, format="JPEG", quality=85)
         jpeg_bytes = jpeg_buf.getvalue()
+        print(f"[{job_id}] Image prepared: {img.size}, {len(jpeg_bytes)} bytes")
 
-        print(f"[{job_id}] Image size: {img.size}, JPEG bytes: {len(jpeg_bytes)}, calling Gemini...")
+        with JOBS_LOCK:
+            JOBS[job_id]["log"] = "Calling Gemini..."
 
         client = genai.Client(api_key=api_key)
+        print(f"[{job_id}] Calling {MODEL}")
+
         response = client.models.generate_content(
             model=MODEL,
             contents=[
                 PROMPT,
-                types.Part.from_bytes(data=jpeg_bytes, mime_type="image/jpeg")
+                types.Part.from_bytes(data=jpeg_bytes, mime_type="image/jpeg"),
             ],
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
             ),
         )
 
-        print(f"[{job_id}] Gemini responded")
-
+        print(f"[{job_id}] Got response")
         parts = []
         try:
             parts = response.candidates[0].content.parts
@@ -73,19 +74,19 @@ def _run_job(job_id, img_bytes, api_key):
         for part in parts:
             inline = getattr(part, "inline_data", None)
             if inline and getattr(inline, "data", None):
-                print(f"[{job_id}] Got image back!")
+                print(f"[{job_id}] Success! Image size: {len(inline.data)} bytes")
                 with JOBS_LOCK:
                     JOBS[job_id] = {"status": "done", "data": inline.data}
                 return
 
-        # No image returned — check text reason
         text = " ".join(getattr(p, "text", "") for p in parts if getattr(p, "text", ""))
-        raise Exception(text or "Gemini returned no image.")
+        raise Exception(text or "Gemini returned no image in response.")
 
     except Exception as e:
-        print(f"[{job_id}] Error: {e}")
+        err = str(e)
+        print(f"[{job_id}] ERROR: {err}")
         with JOBS_LOCK:
-            JOBS[job_id] = {"status": "error", "error": str(e)}
+            JOBS[job_id] = {"status": "error", "error": err}
 
 
 @app.errorhandler(404)
@@ -96,9 +97,28 @@ def not_found(e):
 def server_error(e):
     return jsonify({"error": str(e)}), 500
 
+
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
+
+
+@app.route("/test")
+def test_api():
+    """Quick test to verify the Gemini API key works at all."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return jsonify({"ok": False, "error": "No GEMINI_API_KEY set"}), 500
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents="Say: API key works!"
+        )
+        return jsonify({"ok": True, "reply": response.text})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/enhance", methods=["POST"])
@@ -118,7 +138,7 @@ def enhance():
     job_id = uuid.uuid4().hex
 
     with JOBS_LOCK:
-        JOBS[job_id] = {"status": "pending"}
+        JOBS[job_id] = {"status": "pending", "log": "Starting..."}
 
     t = threading.Thread(target=_run_job, args=(job_id, img_bytes, api_key), daemon=True)
     t.start()
