@@ -57,7 +57,7 @@ ENHANCEMENT_PROMPT = (
     "over-smooth skin."
 )
 
-MODEL = "gemini-2.0-flash-preview-image-generation"
+MODEL = "gemini-3.1-flash-image-preview"
 
 
 def allowed_file(filename: str) -> bool:
@@ -91,7 +91,7 @@ def enhance():
 
         from google.genai import types
 
-        client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
+        client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model=MODEL,
             contents=[ENHANCEMENT_PROMPT, input_image],
