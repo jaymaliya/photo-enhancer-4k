@@ -91,7 +91,7 @@ def enhance():
 
         from google.genai import types
 
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
         response = client.models.generate_content(
             model=MODEL,
             contents=[ENHANCEMENT_PROMPT, input_image],
