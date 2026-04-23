@@ -67,7 +67,10 @@ def _run_enhancement(job_id: str, img_bytes: bytes, api_key: str):
         input_image = Image.open(BytesIO(img_bytes)).convert("RGB")
         print(f"[{job_id}] Image loaded: {input_image.size}")
 
-        client = genai.Client(api_key=api_key, http_options={"timeout": 120})
+        with JOBS_LOCK:
+            JOBS[job_id]["log"] = "Creating API client..."
+        client = genai.Client(api_key=api_key)
+        print(f"[{job_id}] Client created")
 
         with JOBS_LOCK:
             JOBS[job_id]["log"] = "Calling Gemini API..."
