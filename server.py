@@ -88,6 +88,14 @@ def _run_job(job_id, img_bytes, api_key):
             JOBS[job_id] = {"status": "error", "error": str(e)}
 
 
+@app.errorhandler(404)
+def not_found(e):
+    return send_from_directory("static", "index.html")
+
+@app.errorhandler(500)
+def server_error(e):
+    return jsonify({"error": str(e)}), 500
+
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")

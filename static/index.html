@@ -652,7 +652,9 @@
 
     try {
       const res = await fetch('/enhance', { method: 'POST', body: formData });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error(`Server error: ${text.slice(0,100)}`); }
       if (!res.ok || data.error) throw new Error(data.error || 'Upload failed');
 
       const jobId = data.job_id;
