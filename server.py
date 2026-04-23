@@ -3,32 +3,22 @@
 
 import os
 import uuid
+import threading
 from io import BytesIO
-from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 load_dotenv()
 
-
-def _supabase_log():
-    """Insert one row into `enhancements` to count a button click. Silent on failure."""
-    url = os.environ.get("SUPABASE_URL", "")
-    key = os.environ.get("SUPABASE_KEY", "")
-    if not url or not key or "your_supabase" in url:
-        return
-    try:
-        from supabase import create_client
-        create_client(url, key).table("enhancements").insert({}).execute()
-    except Exception:
-        pass
-
 app = Flask(__name__, static_folder="static", static_url_path="")
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+
+# In-memory job store: job_id -> {"status": "pending"|"done"|"error", "data": bytes|str}
+JOBS = {}
+JOBS_LOCK = threading.Lock()
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
-MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20 MB
-app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 ENHANCEMENT_PROMPT = (
     "Enhance the portrait while strictly preserving the subject's identity with "
@@ -64,6 +54,67 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _run_enhancement(job_id: str, img_bytes: bytes, api_key: str):
+    """Runs in a background thread. Stores result in JOBS."""
+    try:
+        from google import genai
+        from google.genai import types
+        from PIL import Image
+
+        input_image = Image.open(BytesIO(img_bytes)).convert("RGB")
+        client = genai.Client(api_key=api_key, http_options={"timeout": 300})
+
+        last_exc = None
+        response = None
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model=MODEL,
+                    contents=[ENHANCEMENT_PROMPT, input_image],
+                    config=types.GenerateContentConfig(
+                        response_modalities=["IMAGE", "TEXT"],
+                    ),
+                )
+                break
+            except Exception as e:
+                last_exc = e
+                if "503" in str(e) or "UNAVAILABLE" in str(e):
+                    import time
+                    time.sleep(8)
+                    continue
+                raise
+
+        if response is None:
+            raise last_exc
+
+        parts = []
+        try:
+            parts = response.candidates[0].content.parts
+        except (AttributeError, IndexError):
+            pass
+
+        for part in parts:
+            inline = getattr(part, "inline_data", None)
+            if inline is not None and getattr(inline, "data", None):
+                with JOBS_LOCK:
+                    JOBS[job_id] = {"status": "done", "data": inline.data}
+                return
+
+        text_parts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
+        reason = " ".join(text_parts) if text_parts else "No image returned by the model."
+        with JOBS_LOCK:
+            JOBS[job_id] = {"status": "error", "data": f"Enhancement failed: {reason}"}
+
+    except Exception as exc:
+        msg = str(exc)
+        if "API_KEY_INVALID" in msg or "API key not valid" in msg:
+            msg = "Invalid Gemini API key."
+        elif "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+            msg = "Gemini quota exhausted. Please try again later."
+        with JOBS_LOCK:
+            JOBS[job_id] = {"status": "error", "data": f"Enhancement failed: {msg}"}
+
+
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
@@ -82,69 +133,41 @@ def enhance():
     if file.filename == "" or not allowed_file(file.filename):
         return jsonify({"error": "Invalid file. Please upload a JPG, PNG, or WEBP image."}), 400
 
-    try:
-        from google import genai
-        from PIL import Image
+    img_bytes = file.read()
+    job_id = uuid.uuid4().hex
 
-        img_bytes = file.read()
-        input_image = Image.open(BytesIO(img_bytes)).convert("RGB")
+    with JOBS_LOCK:
+        JOBS[job_id] = {"status": "pending", "data": None}
 
-        from google.genai import types
+    thread = threading.Thread(target=_run_enhancement, args=(job_id, img_bytes, api_key), daemon=True)
+    thread.start()
 
-        client = genai.Client(api_key=api_key, http_options={"timeout": 180})
-        last_exc = None
-        response = None
-        for attempt in range(3):
-            try:
-                response = client.models.generate_content(
-                    model=MODEL,
-                    contents=[ENHANCEMENT_PROMPT, input_image],
-                    config=types.GenerateContentConfig(
-                        response_modalities=["IMAGE", "TEXT"],
-                    ),
-                )
-                break
-            except Exception as e:
-                last_exc = e
-                if "503" in str(e) or "UNAVAILABLE" in str(e):
-                    import time
-                    time.sleep(5)
-                    continue
-                raise
-        if response is None:
-            raise last_exc
+    return jsonify({"job_id": job_id}), 202
 
-        parts = []
-        try:
-            parts = response.candidates[0].content.parts
-        except (AttributeError, IndexError):
-            pass
 
-        for part in parts:
-            inline = getattr(part, "inline_data", None)
-            if inline is not None and getattr(inline, "data", None):
-                output_buf = BytesIO(inline.data)
-                output_buf.seek(0)
-                _supabase_log()
-                filename = f"enhanced_{uuid.uuid4().hex[:8]}.png"
-                return send_file(
-                    output_buf,
-                    mimetype="image/png",
-                    as_attachment=True,
-                    download_name=filename,
-                )
+@app.route("/status/<job_id>")
+def status(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    if job["status"] == "error":
+        return jsonify({"status": "error", "error": job["data"]}), 200
+    return jsonify({"status": job["status"]}), 200
 
-        text_parts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
-        reason = " ".join(text_parts) if text_parts else "No image returned by the model."
-        return jsonify({"error": f"Enhancement failed: {reason}"}), 502
 
-    except Exception as exc:
-        msg = str(exc)
-        if "API_KEY_INVALID" in msg or "API key not valid" in msg:
-            return jsonify({"error": "Invalid Gemini API key. Check server configuration."}), 500
-        if "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
-            return jsonify({"error": "Gemini quota exhausted. Please try again later."}), 429
-        return jsonify({"error": f"Enhancement failed: {msg}"}), 500
+@app.route("/result/<job_id>")
+def result(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job or job["status"] != "done":
+        return jsonify({"error": "Result not ready"}), 404
+    buf = BytesIO(job["data"])
+    buf.seek(0)
+    with JOBS_LOCK:
+        del JOBS[job_id]
+    return send_file(buf, mimetype="image/png", as_attachment=True,
+                     download_name=f"enhanced_{job_id[:8]}.png")
 
 
 if __name__ == "__main__":

@@ -645,27 +645,52 @@
   enhanceBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
     setLoading(true);
-    showStatus('Enhancing your photo with Gemini Nano Banana… this takes 20–60 seconds.', 'info');
+    showStatus('Uploading photo…', 'info');
+
     const formData = new FormData();
     formData.append('image', selectedFile);
+
     try {
+      // Step 1: submit job
       const res = await fetch('/enhance', { method: 'POST', body: formData });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
-        throw new Error(data.error || `Server error ${res.status}`);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `Server error ${res.status}`);
+
+      const jobId = data.job_id;
+      showStatus('Enhancing with Gemini AI… this takes 30–90 seconds. Please wait.', 'info');
+
+      // Step 2: poll for result
+      let elapsed = 0;
+      while (elapsed < 180000) {
+        await new Promise(r => setTimeout(r, 4000));
+        elapsed += 4000;
+
+        const poll = await fetch(`/status/${jobId}`);
+        const pollData = await poll.json();
+
+        if (pollData.status === 'error') throw new Error(pollData.error);
+
+        if (pollData.status === 'done') {
+          // Step 3: fetch result
+          const imgRes = await fetch(`/result/${jobId}`);
+          if (!imgRes.ok) throw new Error('Failed to fetch enhanced image.');
+          enhancedBlob = await imgRes.blob();
+          const url = URL.createObjectURL(enhancedBlob);
+          enhancedImg.src = url;
+          enhancedBox.style.display = 'block';
+          downloadBtn.style.display = 'flex';
+          downloadBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
+            a.click();
+          };
+          hideStatus();
+          setLoading(false);
+          return;
+        }
       }
-      enhancedBlob = await res.blob();
-      const url = URL.createObjectURL(enhancedBlob);
-      enhancedImg.src = url;
-      enhancedBox.style.display = 'block';
-      downloadBtn.style.display = 'flex';
-      downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
-        a.click();
-      };
-      hideStatus();
+      throw new Error('Enhancement timed out. Please try again.');
     } catch (err) {
       showStatus(err.message, 'error');
     } finally {
