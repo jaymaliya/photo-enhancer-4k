@@ -487,10 +487,10 @@
 <div class="hero">
   <div class="powered-pill">
     <svg viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
-    Powered by Gemini Nano Banana
+    Advanced AI Enhancement
   </div>
   <h1>Turn any portrait into<br><span class="gradient-text">premium 4K quality</span></h1>
-  <p>Upload a photo and get a cinematic, Sony A1-quality enhanced version in seconds using advanced AI technology.</p>
+  <p>Upload a photo and get a sharpened, upscaled, cinema-grade enhanced version in seconds.</p>
 </div>
 
 <div class="card">
@@ -573,7 +573,7 @@
 </div>
 
 <footer>
-  Powered by Gemini 2.5 Flash Image (Nano Banana) · Identity & background preserved · No data stored
+  2x Upscaling · Smart Sharpening · Color Enhancement · No data stored
 </footer>
 
 <script>
@@ -645,54 +645,29 @@
   enhanceBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
     setLoading(true);
-    showStatus('Uploading photo…', 'info');
+    showStatus('Enhancing your photo to 4K quality…', 'info');
 
     const formData = new FormData();
     formData.append('image', selectedFile);
 
     try {
-      // Step 1: submit job
       const res = await fetch('/enhance', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || `Server error ${res.status}`);
-
-      const jobId = data.job_id;
-      showStatus('Enhancing with Gemini AI… this takes 30–90 seconds. Please wait.', 'info');
-
-      // Step 2: poll for result
-      let elapsed = 0;
-      while (elapsed < 180000) {
-        await new Promise(r => setTimeout(r, 4000));
-        elapsed += 4000;
-
-        const poll = await fetch(`/status/${jobId}`);
-        const pollData = await poll.json();
-
-        if (pollData.status === 'error') throw new Error(pollData.error);
-
-        if (pollData.log) showStatus(`Processing… ${pollData.log} (${Math.round(elapsed/1000)}s)`, 'info');
-
-        if (pollData.status === 'done') {
-          // Step 3: fetch result
-          const imgRes = await fetch(`/result/${jobId}`);
-          if (!imgRes.ok) throw new Error('Failed to fetch enhanced image.');
-          enhancedBlob = await imgRes.blob();
-          const url = URL.createObjectURL(enhancedBlob);
-          enhancedImg.src = url;
-          enhancedBox.style.display = 'block';
-          downloadBtn.style.display = 'flex';
-          downloadBtn.onclick = () => {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
-            a.click();
-          };
-          hideStatus();
-          setLoading(false);
-          return;
-        }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+        throw new Error(data.error || `Server error ${res.status}`);
       }
-      throw new Error('Enhancement timed out. Please try again.');
+      enhancedBlob = await res.blob();
+      const url = URL.createObjectURL(enhancedBlob);
+      enhancedImg.src = url;
+      enhancedBox.style.display = 'block';
+      downloadBtn.style.display = 'flex';
+      downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = selectedFile.name.replace(/\.[^.]+$/, '') + '_enhanced.png';
+        a.click();
+      };
+      hideStatus();
     } catch (err) {
       showStatus(err.message, 'error');
     } finally {
