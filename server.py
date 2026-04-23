@@ -43,12 +43,20 @@ def _run_job(job_id, img_bytes, api_key):
         if img.width > max_dim or img.height > max_dim:
             img.thumbnail((max_dim, max_dim), Image.LANCZOS)
 
-        print(f"[{job_id}] Image size: {img.size}, calling Gemini...")
+        # Convert to JPEG bytes for API
+        jpeg_buf = BytesIO()
+        img.save(jpeg_buf, format="JPEG", quality=90)
+        jpeg_bytes = jpeg_buf.getvalue()
+
+        print(f"[{job_id}] Image size: {img.size}, JPEG bytes: {len(jpeg_bytes)}, calling Gemini...")
 
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model=MODEL,
-            contents=[PROMPT, img],
+            contents=[
+                PROMPT,
+                types.Part.from_bytes(data=jpeg_bytes, mime_type="image/jpeg")
+            ],
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
             ),
