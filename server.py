@@ -91,14 +91,28 @@ def enhance():
 
         from google.genai import types
 
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=[ENHANCEMENT_PROMPT, input_image],
-            config=types.GenerateContentConfig(
-                response_modalities=["IMAGE", "TEXT"],
-            ),
-        )
+        client = genai.Client(api_key=api_key, http_options={"timeout": 180})
+        last_exc = None
+        response = None
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model=MODEL,
+                    contents=[ENHANCEMENT_PROMPT, input_image],
+                    config=types.GenerateContentConfig(
+                        response_modalities=["IMAGE", "TEXT"],
+                    ),
+                )
+                break
+            except Exception as e:
+                last_exc = e
+                if "503" in str(e) or "UNAVAILABLE" in str(e):
+                    import time
+                    time.sleep(5)
+                    continue
+                raise
+        if response is None:
+            raise last_exc
 
         parts = []
         try:
