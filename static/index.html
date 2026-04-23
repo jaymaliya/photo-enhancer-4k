@@ -670,6 +670,8 @@
 
         if (pollData.status === 'error') throw new Error(pollData.error);
 
+        if (pollData.log) showStatus(`Processing… ${pollData.log} (${Math.round(elapsed/1000)}s)`, 'info');
+
         if (pollData.status === 'done') {
           // Step 3: fetch result
           const imgRes = await fetch(`/result/${jobId}`);

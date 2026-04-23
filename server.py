@@ -56,37 +56,32 @@ def allowed_file(filename: str) -> bool:
 
 def _run_enhancement(job_id: str, img_bytes: bytes, api_key: str):
     """Runs in a background thread. Stores result in JOBS."""
+    print(f"[{job_id}] Thread started")
     try:
         from google import genai
         from google.genai import types
         from PIL import Image
 
+        with JOBS_LOCK:
+            JOBS[job_id]["log"] = "Loading image..."
         input_image = Image.open(BytesIO(img_bytes)).convert("RGB")
-        client = genai.Client(api_key=api_key, http_options={"timeout": 300})
+        print(f"[{job_id}] Image loaded: {input_image.size}")
 
-        last_exc = None
-        response = None
-        for attempt in range(3):
-            try:
-                response = client.models.generate_content(
-                    model=MODEL,
-                    contents=[ENHANCEMENT_PROMPT, input_image],
-                    config=types.GenerateContentConfig(
-                        response_modalities=["IMAGE", "TEXT"],
-                    ),
-                )
-                break
-            except Exception as e:
-                last_exc = e
-                if "503" in str(e) or "UNAVAILABLE" in str(e):
-                    import time
-                    time.sleep(8)
-                    continue
-                raise
+        client = genai.Client(api_key=api_key, http_options={"timeout": 120})
 
-        if response is None:
-            raise last_exc
+        with JOBS_LOCK:
+            JOBS[job_id]["log"] = "Calling Gemini API..."
+        print(f"[{job_id}] Calling Gemini API with model: {MODEL}")
 
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=[ENHANCEMENT_PROMPT, input_image],
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+            ),
+        )
+
+        print(f"[{job_id}] Gemini response received")
         parts = []
         try:
             parts = response.candidates[0].content.parts
@@ -96,23 +91,26 @@ def _run_enhancement(job_id: str, img_bytes: bytes, api_key: str):
         for part in parts:
             inline = getattr(part, "inline_data", None)
             if inline is not None and getattr(inline, "data", None):
+                print(f"[{job_id}] Image data received, size: {len(inline.data)} bytes")
                 with JOBS_LOCK:
-                    JOBS[job_id] = {"status": "done", "data": inline.data}
+                    JOBS[job_id] = {"status": "done", "data": inline.data, "log": "Done"}
                 return
 
         text_parts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
         reason = " ".join(text_parts) if text_parts else "No image returned by the model."
+        print(f"[{job_id}] No image in response: {reason}")
         with JOBS_LOCK:
-            JOBS[job_id] = {"status": "error", "data": f"Enhancement failed: {reason}"}
+            JOBS[job_id] = {"status": "error", "data": f"Enhancement failed: {reason}", "log": reason}
 
     except Exception as exc:
         msg = str(exc)
+        print(f"[{job_id}] Exception: {msg}")
         if "API_KEY_INVALID" in msg or "API key not valid" in msg:
             msg = "Invalid Gemini API key."
         elif "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
             msg = "Gemini quota exhausted. Please try again later."
         with JOBS_LOCK:
-            JOBS[job_id] = {"status": "error", "data": f"Enhancement failed: {msg}"}
+            JOBS[job_id] = {"status": "error", "data": f"Enhancement failed: {msg}", "log": msg}
 
 
 @app.route("/")
@@ -153,7 +151,7 @@ def status(job_id):
         return jsonify({"error": "Job not found"}), 404
     if job["status"] == "error":
         return jsonify({"status": "error", "error": job["data"]}), 200
-    return jsonify({"status": job["status"]}), 200
+    return jsonify({"status": job["status"], "log": job.get("log", "")}), 200
 
 
 @app.route("/result/<job_id>")
